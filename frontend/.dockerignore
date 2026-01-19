@@ -1,0 +1,7 @@
+# Git
+.git
+.gitignore
+
+# IDE/Editor files
+.vscode/
+.idea/

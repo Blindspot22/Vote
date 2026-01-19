@@ -1,0 +1,134 @@
+services:
+  # ==========================================
+  # FRONTEND: Serves static files & reverse proxy
+  # ==========================================
+  frontend:
+    build: 
+      context: ./frontend
+      target: final  # Target the final stage of the multistage build
+    ports:
+      - "8080:80"  # Map host port 8080 to container port 80
+    depends_on:
+      - vote
+      - result
+    networks:
+      - frontend-net
+    restart: always
+
+  # ==========================================
+  # VOTE SERVICE: Accepts votes, pushes to Redis
+  # ==========================================
+  vote:
+    build:
+      context: ./vote-service
+      target: runtime
+    environment:
+      - REDIS_HOST=redis
+    networks:
+      - frontend-net
+      - backend-net
+    depends_on:
+      - redis
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ==========================================
+  # RESULT SERVICE: Reads results from DB
+  # ==========================================
+  result:
+    build:
+      context: ./result-service
+      target: runtime
+    environment:
+      - DB_HOST=db
+      - DB_NAME=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - REDIS_HOST=redis
+    networks:
+      - frontend-net
+      - db-net
+      - backend-net
+    depends_on:
+      - db
+      - redis
+    restart: always
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ==========================================
+  # WORKER SERVICE: Processes votes (Redis -> DB)
+  # ==========================================
+  worker:
+    build:
+      context: ./worker-service
+      target: runtime
+    environment:
+      - REDIS_HOST=redis
+      - DB_HOST=db
+      - DB_NAME=postgres
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+    networks:
+      - backend-net
+      - db-net
+    depends_on:
+      - redis
+      - db
+    restart: always
+
+  # ==========================================
+  # REDIS: Message Queue
+  # ==========================================
+  redis:
+    image: redis:alpine
+    networks:
+      - backend-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # ==========================================
+  # DATABASE: Persistent Storage
+  # ==========================================
+  db:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - db-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+# ==========================================
+# NETWORKS: Isolation Layers
+# ==========================================
+networks:
+  frontend-net:
+    driver: bridge
+  backend-net:
+    driver: bridge
+  db-net:
+    driver: bridge
+
+# ==========================================
+# VOLUMES: Persistent Data
+# ==========================================
+volumes:
+  db-data:
