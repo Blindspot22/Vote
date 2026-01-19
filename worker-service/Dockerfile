@@ -1,7 +1,7 @@
 # ==========================================
 # STAGE 1: Builder
 # ==========================================
-FROM rust:1.58 as builder
+FROM rust:1.73 as builder
 
 WORKDIR /usr/src/worker-service
 

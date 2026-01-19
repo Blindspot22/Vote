@@ -22,6 +22,7 @@ services:
     build:
       context: ./vote-service
       target: runtime
+    command: /usr/local/bin/vote-service
     environment:
       - REDIS_HOST=redis
     networks:
@@ -30,11 +31,6 @@ services:
     depends_on:
       - redis
     restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
   # ==========================================
   # RESULT SERVICE: Reads results from DB
@@ -43,6 +39,7 @@ services:
     build:
       context: ./result-service
       target: runtime
+    command: /usr/local/bin/result-service
     environment:
       - DB_HOST=db
       - DB_NAME=postgres
@@ -57,11 +54,6 @@ services:
       - db
       - redis
     restart: always
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
 
   # ==========================================
   # WORKER SERVICE: Processes votes (Redis -> DB)
@@ -70,6 +62,7 @@ services:
     build:
       context: ./worker-service
       target: runtime
+    command: /usr/local/bin/worker-service
     environment:
       - REDIS_HOST=redis
       - DB_HOST=db
